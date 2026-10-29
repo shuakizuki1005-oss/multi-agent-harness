@@ -91,3 +91,14 @@ def create_worktree(repo_path):
         raise RuntimeError(result.stderr)
 
     return worktree_path, branch_name
+
+def get_changes(repo_path):
+    result = run_git(
+        ["status", "--short"],
+        repo_path
+    )
+
+    if result.returncode != 0:
+        raise RuntimeError(result.stderr)
+
+    return result.stdout.strip()
