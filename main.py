@@ -1,4 +1,4 @@
-from git_manager import run_git
+from git_manager import run_git, prepare_branch
 import argparse
 from pathlib import Path
 
@@ -70,6 +70,24 @@ def main():
         return
     
     print("\nGitの作業ディレクトリはクリーンです。")
+
+    answer = input(
+        "\nAI専用の作業ブランチを作成しますか？ (y/n): "
+    )
+
+    if answer.lower() != "y":
+        print("処置を中止しました。")
+        return
+
+    try:
+        original_branch, new_branch = prepare_branch(repo_path)
+
+    except RuntimeError as error:
+        print(f"ブランチ作成エラー: {error}")
+        return
+
+    print(f"元のブランチ: {original_branch}")
+    print(f"作業ブランチ: {new_branch}")
     # マルチエージェント処理を開始
     run_agents(
         task=args.task,
