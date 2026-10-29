@@ -22,3 +22,17 @@ Codexのレビュー:
 修正内容と理由を説明してください。
 """
     return prompt
+
+from implementation_agent import implement_with_claude
+
+def repair_code(task, test_output, review, repo_path):
+    prompt = create_repair_prompt(
+        task=task,
+        test_output=test_output,
+        review=review
+    )
+
+    return implement_with_claude(
+        task=prompt,
+        cwd=repo_path
+    )
