@@ -51,3 +51,43 @@ def prepare_branch(repo_path):
         raise RuntimeError(result.stderr)
 
     return original_branch, branch_name
+
+from pathlib import Path
+from uuid import uuid4
+
+def create_worktree(repo_path):
+    repo_path = Path(repo_path).resolve()
+
+    #未コミットの変更がないか確認
+    status = run_git(["status", "--porcelain"], repo_path)
+
+    if status.returncode != 0:
+        raise RuntimeError(status.stderr)
+    
+    if status.stdout.strip():
+        raise RuntimeError("未コミットの変更があります")
+
+    #作業ごとに固有の名前を生成
+    run_id = uuid4().hex[:8]
+    branch_name = f"agent/task-{run_id}"
+
+    #元のフォルダの外側に作業フォルダを作る
+    worktree_path = (
+        repo_path.parent / f"{repo_path.name}-agent-{run_id}"
+    )
+
+    result = run_git(
+        [
+            "worktree",
+            "add",
+            "-b",
+            branch_name,
+            str(worktree_path)
+        ],
+        repo_path
+    )
+
+    if result.returncode != 0:
+        raise RuntimeError(result.stderr)
+
+    return worktree_path, branch_name
