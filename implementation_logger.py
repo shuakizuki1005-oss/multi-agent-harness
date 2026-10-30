@@ -45,3 +45,19 @@ def save_implementation_log(log_data, status):
         )
 
         return log_path
+
+def finalize_implementation_log(log_data, status):
+    try:
+        log_path = save_implementation_log(
+            log_data=log_data,
+            status=status
+        )
+
+        print("\n=== 実行ログ ===")
+        print(f"保存先: {log_path}")
+
+        return log_path
+
+    except (OSError, TypeError, ValueError) as error:
+        print(f"ログ保存に失敗しました: {error}")
+        return None
