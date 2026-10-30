@@ -58,7 +58,7 @@ def run_hello_test(worktree_path):
 
 
 def main():
-    # ① テスト用リポジトリを指定
+    # ① テスト用リポジトリ
     repo_path = Path.home() / "harness-test"
 
     if not repo_path.is_dir():
@@ -90,7 +90,7 @@ def main():
     print(f"作業ブランチ: {branch_name}")
     print(f"作業フォルダ: {worktree_path}")
 
-    # ④ Claude Codeが実装
+    # ④ Claude Codeによる実装
     print("\n=== Claude: 実装 ===")
 
     success = implement_with_claude(
@@ -107,13 +107,14 @@ def main():
 
     try:
         changes = get_changes(worktree_path)
+
     except RuntimeError as error:
         print(f"Git変更確認エラー: {error}")
         return
 
     print(changes or "変更なし")
 
-    # ⑥ Codexがレビュー
+    # ⑥ Codexによるレビュー
     print("\n=== Codex: コードレビュー ===")
 
     review = ask_codex(
@@ -137,7 +138,7 @@ def main():
 
     print(review)
 
-    # ⑦ Pythonによるテストと自動修正
+    # ⑦ テストと自動修正
     print("\n=== Python: テストと自動修正 ===")
 
     for attempt in range(MAX_REPAIRS + 1):
@@ -174,7 +175,7 @@ def main():
             print("Claudeによる修正に失敗しました")
             break
 
-    # ⑧ 最終的な変更内容を表示
+    # ⑧ 最終的なGit変更確認
     print("\n=== 最終Git変更確認 ===")
 
     try:
