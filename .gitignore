@@ -1,4 +1,21 @@
+# Python
 .venv/
 __pycache__/
-logs/
+*.pyc
+.pytest_cache/
+
+# Environment variables
 .env
+.env.*
+!.env.example
+
+# Logs
+logs/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
