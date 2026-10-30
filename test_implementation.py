@@ -5,8 +5,8 @@ import sys
 
 from git_manager import create_worktree, get_changes
 from implementation_agent import implement_with_claude
-from codex_agent import ask_codex
 from repair_agent import repair_code
+from review_agent import review_code
 
 
 # AIに依頼するタスク
@@ -15,7 +15,7 @@ TASK = (
     "Hello from AI! と表示するPythonコードを書いてください。"
 )
 
-# 最大修正回数
+# Claudeによる最大修正回数
 MAX_REPAIRS = 3
 
 
@@ -58,7 +58,7 @@ def run_hello_test(worktree_path):
 
 
 def main():
-    # ① テスト用リポジトリ
+    # ① テスト用リポジトリを指定
     repo_path = Path.home() / "harness-test"
 
     if not repo_path.is_dir():
@@ -90,7 +90,7 @@ def main():
     print(f"作業ブランチ: {branch_name}")
     print(f"作業フォルダ: {worktree_path}")
 
-    # ④ Claude Codeによる実装
+    # ④ Claude Codeがコードを実装
     print("\n=== Claude: 実装 ===")
 
     success = implement_with_claude(
@@ -114,51 +114,43 @@ def main():
 
     print(changes or "変更なし")
 
-    # ⑥ Codexによるレビュー
-    print("\n=== Codex: コードレビュー ===")
+    # ⑥ テスト・レビュー・修正ループ
+    print("\n=== 自動テスト・レビュー開始 ===")
 
-    review = ask_codex(
-        prompt="""
-        このリポジトリの変更内容をレビューしてください。
-
-        確認項目:
-        - コードが正しく動くか
-        - バグがないか
-        - セキュリティ上の問題がないか
-        - 改善点があるか
-
-        ファイルは変更しないでください。
-        """,
-        cwd=worktree_path
-    )
-
-    if not review:
-        print("Codexレビューに失敗しました")
-        return
-
-    print(review)
-
-    # ⑦ テストと自動修正
-    print("\n=== Python: テストと自動修正 ===")
+    approved = False
 
     for attempt in range(MAX_REPAIRS + 1):
+        print(f"\n=== 検証 {attempt + 1} 回目 ===")
+
+        # Pythonによる動作テスト
         passed, test_output = run_hello_test(worktree_path)
 
-        print(f"\nテスト実行 {attempt + 1} 回目")
+        print("\nテスト結果:")
         print(test_output)
 
-        # テスト成功なら終了
-        if passed:
-            print("\nテスト成功！")
+        # Codexによるコードレビュー
+        review_passed, review = review_code(
+            task=TASK,
+            test_output=test_output,
+            test_passed=passed,
+            repo_path=worktree_path
+        )
+
+        print("\n=== Codexレビュー ===")
+        print(review)
+
+        # テストとレビューの両方が成功したら終了
+        if passed and review_passed:
+            approved = True
+            print("\nテスト・レビューともに成功！")
             break
 
         # 最大修正回数に達したら停止
         if attempt == MAX_REPAIRS:
             print("\n最大修正回数に達しました")
-            print("テストは成功していません")
             break
 
-        # Claudeに修正を依頼
+        # Claude Codeによる修正
         print(
             f"\n=== Claude: 修正 "
             f"{attempt + 1}/{MAX_REPAIRS} ==="
@@ -174,6 +166,14 @@ def main():
         if not success:
             print("Claudeによる修正に失敗しました")
             break
+
+    # ⑦ 最終判定
+    print("\n=== 最終判定 ===")
+
+    if approved:
+        print("SUCCESS: テスト・レビュー承認")
+    else:
+        print("FAILED: 未承認")
 
     # ⑧ 最終的なGit変更確認
     print("\n=== 最終Git変更確認 ===")
