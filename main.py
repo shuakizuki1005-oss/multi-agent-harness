@@ -68,7 +68,29 @@ def main():
         print("未コミットの変更があるため停止しました")
         return
 
-    # ③ 実行確認
+    # ③ 実装前のpytest
+    print("\n=== 実装前のpytest ===")
+
+    answer = input(
+        "既存テストの内容を確認しましたか？ "
+        "pytestを実行しますか？ (y/n): "
+    )
+
+    if answer.strip().lower() != "y":
+        print("テストを実行せず終了しました")
+        return
+
+    passed, test_output = run_project_tests(repo_path)
+
+    print(test_output)
+
+    if not passed:
+        print("\n既存テストが失敗しているため、実装を中止しました")
+        return
+
+    print("\n既存テストはすべて成功しました")
+
+    # ④ Claude Codeの実行確認
     answer = input(
         "\nClaudeに実装を開始させますか？ (y/n): "
     )
@@ -77,7 +99,7 @@ def main():
         print("処理を中止しました")
         return
 
-    # ④ AI専用worktreeで実装
+    # ⑤ AI専用worktreeで実装
     try:
         worktree_path, branch_name, success = start_implementation(
             repo_path=repo_path,
@@ -92,7 +114,7 @@ def main():
     print(f"ブランチ: {branch_name}")
     print(f"作業フォルダ: {worktree_path}")
 
-    # ⑤ ログを初期化
+    # ⑥ ログを初期化
     log_data = create_implementation_log(
         task=args.task,
         repo_path=repo_path,
@@ -107,7 +129,7 @@ def main():
             log_data["error"] = "Implementation failed"
             return
 
-        # ⑥ 実装内容をユーザーが確認
+        # ⑦ 実装内容をユーザーが確認
         print("\n=== 実装内容の確認 ===")
         print(f"作業フォルダ: {worktree_path}")
 
@@ -126,8 +148,8 @@ def main():
             status = "CANCELLED"
             return
 
-        # ⑦ pytestを実行
-        print("\n=== pytest ===")
+        # ⑧ 実装後のpytest
+        print("\n=== 実装後のpytest ===")
 
         passed, test_output = run_project_tests(
             worktree_path
@@ -135,7 +157,7 @@ def main():
 
         print(test_output)
 
-        # ⑧ Codexによるレビュー
+        # ⑨ Codexによるレビュー
         print("\n=== Codexレビュー ===")
 
         review_passed, review = review_code(
@@ -147,7 +169,7 @@ def main():
 
         print(review)
 
-        # ⑨ テスト・レビュー結果をログに記録
+        # ⑩ 結果をJSONログに記録
         add_log_entry(
             log_data=log_data,
             attempt=1,
@@ -158,7 +180,7 @@ def main():
             repair_attempted=False
         )
 
-        # ⑩ 最終判定
+        # ⑪ 最終判定
         print("\n=== 最終結果 ===")
 
         if passed and review_passed:
@@ -173,7 +195,7 @@ def main():
         print(f"\n予期しないエラー: {error}")
 
     finally:
-        # ⑪ 成功・失敗・キャンセル時にもログ保存
+        # ⑫ 成功・失敗・キャンセル時にもログ保存
         finalize_implementation_log(
             log_data=log_data,
             status=status
