@@ -6,11 +6,15 @@ from git_manager import run_git
 from implementation_pipeline import start_implementation
 from test_runner import run_project_tests
 from review_agent import review_code
+from repair_agent import repair_code
 from implementation_logger import (
     create_implementation_log,
     add_log_entry,
     finalize_implementation_log
 )
+
+
+MAX_REPAIRS = 3
 
 
 def main():
@@ -129,7 +133,7 @@ def main():
             log_data["error"] = "Implementation failed"
             return
 
-        # ⑦ 実装内容をユーザーが確認
+        # ⑦ 実装内容の確認
         print("\n=== 実装内容の確認 ===")
         print(f"作業フォルダ: {worktree_path}")
 
@@ -148,44 +152,100 @@ def main():
             status = "CANCELLED"
             return
 
-        # ⑧ 実装後のpytest
-        print("\n=== 実装後のpytest ===")
+        # ⑧ pytest・レビュー・修正ループ
+        approved = False
 
-        passed, test_output = run_project_tests(
-            worktree_path
-        )
+        for attempt in range(MAX_REPAIRS + 1):
+            print(f"\n=== 検証 {attempt + 1} 回目 ===")
 
-        print(test_output)
+            # pytestを実行
+            passed, test_output = run_project_tests(
+                worktree_path
+            )
 
-        # ⑨ Codexによるレビュー
-        print("\n=== Codexレビュー ===")
+            print("\n=== pytest ===")
+            print(test_output)
 
-        review_passed, review = review_code(
-            task=args.task,
-            test_output=test_output,
-            test_passed=passed,
-            repo_path=worktree_path
-        )
+            # Codexレビュー
+            review_passed, review = review_code(
+                task=args.task,
+                test_output=test_output,
+                test_passed=passed,
+                repo_path=worktree_path
+            )
 
-        print(review)
+            print("\n=== Codexレビュー ===")
+            print(review)
 
-        # ⑩ 結果をJSONログに記録
-        add_log_entry(
-            log_data=log_data,
-            attempt=1,
-            test_passed=passed,
-            test_output=test_output,
-            review_passed=review_passed,
-            review=review,
-            repair_attempted=False
-        )
+            # 結果をログに記録
+            add_log_entry(
+                log_data=log_data,
+                attempt=attempt + 1,
+                test_passed=passed,
+                test_output=test_output,
+                review_passed=review_passed,
+                review=review,
+                repair_attempted=False
+            )
+
+            # テストとレビューの両方が成功
+            if passed and review_passed:
+                approved = True
+                print("\nテスト・レビューともに成功！")
+                break
+
+            # 修正回数の上限
+            if attempt == MAX_REPAIRS:
+                print("\n最大修正回数に達しました")
+                break
+
+            # ⑨ Claude Codeによる修正
+            print(
+                f"\n=== Claude: 修正 "
+                f"{attempt + 1}/{MAX_REPAIRS} ==="
+            )
+
+            log_data["history"][-1]["repair_attempted"] = True
+
+            success = repair_code(
+                task=args.task,
+                test_output=test_output,
+                review=review,
+                repo_path=worktree_path
+            )
+
+            log_data["history"][-1]["repair_succeeded"] = bool(success)
+
+            if not success:
+                print("Claudeによる修正に失敗しました")
+                log_data["error"] = "Repair failed"
+                break
+
+            # ⑩ 修正内容を確認してから再テスト
+            print("\n=== 修正内容の確認 ===")
+            print(f"作業フォルダ: {worktree_path}")
+            print("Claudeが修正したファイルを確認してください。")
+
+            answer = input(
+                "\n修正内容を確認しましたか？ "
+                "再テストしますか？ (y/n): "
+            )
+
+            if answer.strip().lower() != "y":
+                print("再テストを中止しました")
+                status = "CANCELLED"
+                break
 
         # ⑪ 最終判定
         print("\n=== 最終結果 ===")
 
-        if passed and review_passed:
+        if approved:
             status = "SUCCESS"
             print("SUCCESS: pytest・Codexレビュー承認")
+
+        elif status == "CANCELLED":
+            print("CANCELLED: ユーザーが処理を中止しました")
+
         else:
             status = "FAILED"
             print("FAILED: テストまたはレビューが未承認")
